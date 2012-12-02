@@ -6,10 +6,10 @@ import com.sun.syndication.feed.synd.*;
 import com.sun.syndication.io.*;
 import org.json.*;
 
-public class HomestuckUpdateBot
+public class RedditRSSBot
 {
   // config
-  static final String agent = "Homestuck Update Bot";
+  static final String agent = "RedditRSSBot";
   static String user, passwd, feed, sr, logFile;
   static long threshold, interval;
 
@@ -25,18 +25,21 @@ public class HomestuckUpdateBot
     // get login details
     try
     {
-      BufferedReader reader = new BufferedReader(new FileReader(args[0]));
-      user = reader.readLine();
-      passwd = reader.readLine();
-      feed = reader.readLine();
-      sr = reader.readLine();
-      logFile = reader.readLine();
-      threshold = 1000 * Long.parseLong(reader.readLine());
-      interval = 1000 * Long.parseLong(reader.readLine());
+      Properties prop = new Properties();
+      prop.load(new FileReader(args[0]));
+
+      user = prop.getProperty("user");
+      passwd = prop.getProperty("passwd");
+      feed = prop.getProperty("feed");
+      sr = prop.getProperty("sr");
+      logFile = prop.getProperty("logfile");
+      threshold = 1000 * Long.parseLong(prop.getProperty("threshold"));
+      interval = 1000 * Long.parseLong(prop.getProperty("interval"));
     }
     catch (Exception e)
     {
-      log.println("Usage: java HomestuckUpdateBot config");
+      System.out.println("invalid or missing configuration file");
+      System.out.println("Usage: java RedditRSSBot <config>");
       return;
     }
 

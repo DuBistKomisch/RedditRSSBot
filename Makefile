@@ -18,10 +18,6 @@ ${CLASSES}: ${BIN}/%.class:${SRC}/%.java
 	@mkdir -p ${BIN}
 	${JC} ${JCARGS} -d ${BIN} ${SRC}/$*.java
 
-# run the GUI
-run: all
-	${JX} ${JXARGS} HomestuckUpdateBot conf/homestuck_update_bot.conf
-
 # delete compiled files
 clean:
 	rm -rf ${BIN}
