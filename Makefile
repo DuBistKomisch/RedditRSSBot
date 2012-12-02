@@ -10,6 +10,9 @@ JXARGS = ${CP}
 SOURCES = ${wildcard ${SRC}/*.java}
 CLASSES = ${patsubst ${SRC}/%.java,${BIN}/%.class,${SOURCES}}
 
+# dependencies
+${BIN}/RedditRSSBot.class: ${BIN}/TitleFormat.class ${BIN}/RedditCookieHandler.class
+
 # compile all the files
 all: ${CLASSES}
 

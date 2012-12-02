@@ -9,30 +9,33 @@ import org.json.*;
 public class RedditRSSBot
 {
   // config
-  static final String agent = "RedditRSSBot";
-  static String user, passwd, feed, sr, logFile;
-  static long threshold, interval;
+  private static final String agent = "RedditRSSBot";
+  private static String user, passwd, feed, sr, logFile, style;
+  private static long threshold, interval;
 
   // state
-  static String reddit_session = null, modhash = null;
-  static CookieHandler rch = new RedditCookieHandler();
-  static long lastUpdate = (new Date()).getTime();
-  static PrintWriter log;
+  private static String modhash = null;
+  private static CookieHandler rch = new RedditCookieHandler();
+  private static long lastUpdate = (new Date()).getTime();
+  private static PrintWriter log;
   
   public static void main(String args[])
     throws Exception
   {
-    // get login details
+    // get configuration
     try
     {
+      // load properties file
       Properties prop = new Properties();
       prop.load(new FileReader(args[0]));
 
+      // take the properties we want, see sample for explanations
       user = prop.getProperty("user");
       passwd = prop.getProperty("passwd");
       feed = prop.getProperty("feed");
       sr = prop.getProperty("sr");
       logFile = prop.getProperty("logfile");
+      style = prop.getProperty("style");
       threshold = 1000 * Long.parseLong(prop.getProperty("threshold"));
       interval = 1000 * Long.parseLong(prop.getProperty("interval"));
     }
@@ -46,7 +49,7 @@ public class RedditRSSBot
     // start logging
     log = new PrintWriter(new FileWriter(logFile, true), true);
 
-    // sign in for cookie and modhash
+    // sign in to get cookie and modhash
     if (!login(user, passwd))
       return;
 
@@ -67,7 +70,7 @@ public class RedditRSSBot
   }
 
   // checks for new updates
-  public static void poll(String url)
+  private static void poll(String url)
     throws Exception
   {
     log.printf("\n[%s] >> poll\n", new Date());
@@ -80,20 +83,25 @@ public class RedditRSSBot
     for (int i = entries.size() - 1; i >= 0; i--)
     {
       SyndEntry entry = (SyndEntry)entries.get(i);
-      if (entry.getPublishedDate().getTime() - lastUpdate > threshold)
+      if (entry.getPublishedDate().getTime() - lastUpdate >= threshold)
       {
         // found
         lastUpdate = entry.getPublishedDate().getTime();
+        System.out.printf("last: %d, entry: %d, delta: %d, threshold: %d\n",
+            lastUpdate,
+            entry.getPublishedDate().getTime(),
+            entry.getPublishedDate().getTime() - lastUpdate,
+            threshold);
 
         // submit
-        submit("[UPDATE " + entry.getLink().substring(entry.getLink().indexOf("p=") + 4) + "] " + entry.getTitle().substring(entry.getTitle().indexOf(":") + 2), entry.getLink(), sr);
+        submit(TitleFormat.format(style, entry), entry.getLink(), sr);
         return;
       }
     }
   }
 
   // generic api call which returns JSON
-  public static JSONObject api(String call, String data)
+  private static JSONObject api(String call, String data)
     throws Exception
   {
     // set up connection
@@ -124,7 +132,7 @@ public class RedditRSSBot
   }
 
   // retrieves the cookie and modhash so that we can submit
-  public static boolean login(String user, String passwd)
+  private static boolean login(String user, String passwd)
     throws Exception
   {
     // input
@@ -132,25 +140,27 @@ public class RedditRSSBot
     log.printf("user: %s\n", user);
 
     // call api
-    JSONObject json = api("login", "user=" + URLEncoder.encode(user, "UTF-8") + "&passwd=" + URLEncoder.encode(passwd, "UTF-8") + "&api_type=json");
+    JSONObject json = api("login", "user=" + URLEncoder.encode(user, "UTF-8")
+        + "&passwd=" + URLEncoder.encode(passwd, "UTF-8") + "&api_type=json");
 
     // check for errors
     JSONArray errors = json.getJSONObject("json").getJSONArray("errors");
     if (errors.length() > 0)
     {
-      log.printf("error: %s (%s)\n", errors.getJSONArray(0).getString(1), errors.getJSONArray(0).getString(0));
+      log.printf("error: %s (%s)\n",
+          errors.getJSONArray(0).getString(1),
+          errors.getJSONArray(0).getString(0));
       return false;
     }
 
     // results
     modhash = json.getJSONObject("json").getJSONObject("data").getString("modhash");
-    log.printf("reddit_session: %s\n", reddit_session);
     log.printf("modhash: %s\n", modhash);
     return true;
   }
 
   // submit a link, detects errors and redirects
-  public static boolean submit(String title, String url, String sr)
+  private static boolean submit(String title, String url, String sr)
     throws Exception
   {
     // input
@@ -161,7 +171,8 @@ public class RedditRSSBot
     log.printf("sr: %s\n", sr);
 
     // call api
-    JSONObject json = api("submit", "uh=" + modhash + "&title=" + URLEncoder.encode(title, "UTF-8") + "&kind=link&url=" + URLEncoder.encode(url, "UTF-8") + "&sr=" + URLEncoder.encode(sr, "UTF-8"));
+    JSONObject json = api("submit", "uh=" + modhash + "&title=" + URLEncoder.encode(title, "UTF-8")
+        + "&kind=link&url=" + URLEncoder.encode(url, "UTF-8") + "&sr=" + URLEncoder.encode(sr, "UTF-8"));
 
     // check what happened
     JSONArray jquery = json.getJSONArray("jquery");
@@ -195,32 +206,6 @@ public class RedditRSSBot
       System.out.println("done");
       log.printf("page: %s\n", redirect);
       return true;
-    }
-  }
-  
-  // manages the reddit_session cookie
-  static class RedditCookieHandler extends CookieHandler {
-    public Map<String, List<String>> get(URI uri, Map<String, List<String>> requestHeaders)
-        throws IOException
-    {
-      Map<String, List<String>> map = new HashMap<String, List<String>>();
-      if (reddit_session != null)
-      {
-        List<String> l = new ArrayList<String>();
-        l.add(reddit_session);
-        map.put("Cookie", l);
-      }
-      return Collections.unmodifiableMap(map);
-    }
-
-    public void put(URI uri, Map<String,List<String>> responseHeaders)
-        throws IOException
-    {
-      List<String> l = (List<String>)responseHeaders.get("Set-Cookie");
-      for (String s : l)
-        if (s.substring(0, s.indexOf("=")).equals("reddit_session"))
-          //reddit_session = s.substring(s.indexOf("=") + 1, s.indexOf(";"));
-          reddit_session = s;
     }
   }
 }
