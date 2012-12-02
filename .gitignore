@@ -1,6 +1,5 @@
-*.class
+# build folders
+bin/
 
-# Package Files #
-*.jar
-*.war
-*.ear
+# local information
+*.conf
