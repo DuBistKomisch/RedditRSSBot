@@ -86,12 +86,12 @@ public class RedditRSSBot
       if (entry.getPublishedDate().getTime() - lastUpdate >= threshold)
       {
         // found
-        lastUpdate = entry.getPublishedDate().getTime();
         System.out.printf("last: %d, entry: %d, delta: %d, threshold: %d\n",
             lastUpdate,
             entry.getPublishedDate().getTime(),
             entry.getPublishedDate().getTime() - lastUpdate,
             threshold);
+        lastUpdate = entry.getPublishedDate().getTime();
 
         // submit
         submit(TitleFormat.format(style, entry), entry.getLink(), sr);
